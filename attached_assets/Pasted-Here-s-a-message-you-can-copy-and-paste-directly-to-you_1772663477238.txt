@@ -1,0 +1,96 @@
+Here's a message you can copy and paste directly to your mobile app AI agent:
+
+Commander Ability System Update (v2.2.0) — Sync These Changes
+The web version has been updated with major commander ability mechanics fixes and new features. Here's everything that changed — implement these same changes in the mobile app.
+
+1. AbilityBuff type Field Now Has Special Combat Mechanics
+Previously, all AbilityBuff entries were treated as simple power modifiers regardless of their type field. Now these types have distinct mechanics that must be resolved during combat:
+Buff Type
+Power Effect
+Special Mechanic
+"buff"
++power
+None (generic)
+"debuff"
+-power
+None (generic)
+"reduce"
+-power
+None (same as debuff)
+"growth"
++power
+None (same as buff)
+"shield"
++power to matching units
+ALSO blocks incoming damage equal to amount (like Guardian/Shield trait)
+"first_strike"
++power to matching units
+ALSO deals pre-combat HP damage equal to amount (like Quick Strike trait)
+"heal"
++power to matching units
+ALSO heals player HP equal to amount after combat (like Restoration trait)
+"heal_buff"
++power only
+Power buff only — does NOT heal (the heal_and_buffeffect type heals HP directly during ability activation, so this prevents double-healing)
+Implementation in combat resolution (generateCombatSummary):
+	•	Scan all AbilityBuff entries for each player
+	•	For buffs with type: "first_strike": sum their amount values → deal that as pre-combat HP damage to the opponent (same as Quick Strike trait cards)
+	•	For buffs with type: "shield": sum their amountvalues → subtract from incoming damage to that player (same as Guardian trait cards)
+	•	For buffs with type: "heal": sum their amount values → heal that player's HP after combat damage is resolved (same as Restoration trait cards)
+	•	These stack with card traits (a player can have both Quick Strike cards AND first_strike ability buffs)
+2. first_strike Effect Now Uses effect.value
+Previously the first_strike ability effect type was hardcoded to always create a buff with amount: 3. It now uses effect.value || 3 (falls back to 3 if not specified). Make sure your ability application code uses the configured value.
+3. Combat Log Now Includes abilityEffects Field
+The combat log data model has a new optional field:
+{
+"player1Cards": [...],
+"player2Cards": [...],
+"player1Total": 15,
+"player2Total": 12,
+"damage": 3,
+"winner": "player1",
+"turn": 2,
+"abilityEffects": [
+{
+"playerSide": "player1",
+"abilityName": "Flame Shield",
+"effectDescription": "Activated: +4 shield on fire units",
+"phase": "combat"
+},
+{
+"playerSide": "player2",
+"abilityName": "Tidal Surge",
+"effectDescription": "Buffed water units +3",
+"phase": "combat"
+}
+]
+}
+
+This is populated from the abilityLog entries that match the current turn. Display it as a separate section in the combat results UI — color-code entries by player side (green for you, red for opponent).
+4. Commander Info Buttons — View Both Commanders During Gameplay
+The game board now has two commander buttons visible during gameplay:
+	•	Your Commander — shows your commander's name, element, title, description, image, and full ability list with costs and effects
+	•	Opponent's Commander — shows the same info for the opponent (read-only, no activation)
+Use opponentCommanderId from the server game state to look up the opponent's commander from the full commanders list.
+5. Four Commander Ability Categories (for rules/help screens)
+If you have a rules or help section, add documentation for these 4 categories:
+	1	Group Buffs & Debuffs — Modify power for groups of units (all allies, all enemies, or units matching element/trait). Effect types: buff_element_unit, debuff_enemy, reduce_power, growth_buff, block_effects, negate_and_halve, protect_element. Valid phase: combat.
+	2	Trait Activation — Grant trait-like effects with numeric values. Effect types: first_strike (Quick Strike), add_shield (Guardian), healing_factor(Restoration), add_evasion (Evasion). Valid phase: combat.
+	3	Trait-Like Group Effects — Broader versions of trait activation that apply to ALL units rather than a specific element. Same effect types as above but with target: "all".
+	4	Extra Deployments — Allow deploying additional units beyond the normal 2-card limit. Effect type: extra_deploy. Valid phase: deployment ONLY.
+6. Test Cases to Verify
+	1	Pick a commander with a first_strike ability → activate it during combat phase → verify pre-combat damage equal to effect.value is dealt to opponent's HP
+	2	Pick a commander with add_shield ability → activate it → verify damage is blocked (reduced) in combat
+	3	Pick a commander with healing_factor ability → activate it → verify HP is restored after combat
+	4	Pick a commander with extra_deploy ability → verify it ONLY works during deployment phase and is rejected in other phases
+	5	After any combat where abilities were used → verify abilityEffects array in the combat log is populated and displayed
+	6	During any game → verify you can view both your commander and opponent's commander details
+7. Updated Sync Endpoint
+GET /api/admin/sync?code=4838 is now at version 2.2.0 and includes new fields under gameMechanics:
+	•	commanderAbilityCategories — all 4 categories with descriptions, effect types, and phase rules
+	•	abilityBuffTypes — documents which buff types have special mechanics
+	•	combatLogSchema — documents the new abilityEffects field format
+	•	commanderInfoButtons — notes about the new dual commander view feature
+Pull the latest sync data to get complete ability definitions and schemas.
+
+That should give your mobile AI everything it needs to replicate the changes. Let me know if you'd like me to adjust anything in the message.
